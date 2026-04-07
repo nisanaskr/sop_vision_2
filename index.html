@@ -1,13 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VisionGuide AR-SOP</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </head>
-<body>
+<body class="bg-slate-50 font-sans">
     <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const { 
+            ShieldAlert, Wrench, Layers, FileText, Plus, Trash2, 
+            Save, Video, Lock, Unlock, Edit, Key, ClipboardCheck,
+            Image: ImageIcon, X, Download, AlertTriangle, PlayCircle 
+        } = lucide;
+
+        // BURAYA SENİN App.js İÇİNDEKİ TÜM MANTIĞI KOYUYORUZ
+        const App = () => {
+            // URL Parametreleri
+            const queryParams = new URLSearchParams(window.location.search);
+            const viewMode = queryParams.get('view'); 
+            const targetId = queryParams.get('id');
+
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [library, setLibrary] = useState(JSON.parse(localStorage.getItem('visionguide_final') || '[]'));
+            const [sopForm, setSopForm] = useState({ title: '', steps: [''], warnings: [''], videoUrl: '', imageData: null, markers: [] });
+            const [activeMarkerType, setActiveMarkerType] = useState('red');
+            const [editingSopId, setEditingSopId] = useState(null);
+            const [accessKey, setAccessKey] = useState('');
+            
+            const fileInputRef = useRef(null);
+            const imageContainerRef = useRef(null);
+            const downloadRef = useRef(null);
+
+            useEffect(() => {
+                localStorage.setItem('visionguide_final', JSON.stringify(library));
+            }, [library]);
+
+            // Operatör Görünümü, Kaydetme, Silme, Marker Ekleme fonksiyonları...
+            // (Karmaşıklık olmasın diye burada özetliyorum, sen App.js'deki kodlarını buraya gömeceksin)
+            
+            // ... (Tüm o yazdığımız fonksiyonlar ve return kısmı buraya gelecek) ...
+
+            return (
+                <div className="min-h-screen">
+                    {/* Az önceki tasarımlarımız burada olacak */}
+                    <div className="p-10 text-center">
+                        <h1 className="text-3xl font-black text-blue-600">VisionGuide Canlıda!</h1>
+                        <p className="mt-4 text-slate-500 font-bold uppercase tracking-widest text-xs">Sistem Hazırlanıyor...</p>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
