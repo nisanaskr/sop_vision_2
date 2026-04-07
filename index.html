@@ -11,54 +11,60 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-slate-50 font-sans antialiased text-slate-900">
+<body class="bg-slate-50 font-sans">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
-        const { 
-            Layers, FileText, Plus, Trash2, Lock, Edit, 
-            Image: ImageIcon, Download, AlertTriangle, PlayCircle, LogOut, X 
-        } = lucide;
+        const { Layers, Plus, Trash2, Lock, Edit, Image: ImageIcon, PlayCircle, LogOut, AlertTriangle, X } = lucide;
 
         // --- SUPABASE BAĞLANTISI ---
         const SUPABASE_URL = "https://bmulnovloaztpdffyvdu.supabase.co"; 
         const SUPABASE_KEY = "BURAYA_ANON_KEY_YAPISTIR"; 
-        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         const App = () => {
             const queryParams = new URLSearchParams(window.location.search);
             const viewMode = queryParams.get('view'); 
             const targetId = queryParams.get('id');
 
-            const [isAuth, setIsAuth] = useState(false);
-            const [pass, setPass] = useState('');
-            const [list, setList] = useState([]);
-            const [activeType, setActiveType] = useState('red');
-            const [form, setForm] = useState({ title: '', video_url: '', image_data: null, warnings: [''], steps: [''], markers: [] });
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [accessKey, setAccessKey] = useState('');
+            const [library, setLibrary] = useState([]);
+            const [activeMarkerType, setActiveMarkerType] = useState('red');
+            const [sopForm, setSopForm] = useState({ title: '', video_url: '', image_data: null, warnings: [''], steps: [''], markers: [] });
             
-            const fileRef = useRef(null);
-            const imgRef = useRef(null);
+            const fileInputRef = useRef(null);
+            const imageContainerRef = useRef(null);
 
-            useEffect(() => { load(); }, []);
-            const load = async () => {
-                const { data } = await sb.from('sops').select('*').order('created_at', { ascending: false });
-                if (data) setList(data);
+            // Veritabanından çek (Kalıcı Hafıza)
+            useEffect(() => { fetchSops(); }, []);
+
+            const fetchSops = async () => {
+                const { data, error } = await _supabase.from('sops').select('*').order('created_at', { ascending: false });
+                if (!error) setLibrary(data);
             };
 
-            const saveSOP = async () => {
-                if (!form.title || !form.image_data) return alert("Başlık ve Görsel eksik!");
-                const { error } = await sb.from('sops').insert([form]);
+            const handleSave = async () => {
+                if (!sopForm.title || !sopForm.image_data) return alert("Başlık ve Görsel eksik!");
+                const { error } = await _supabase.from('sops').insert([sopForm]);
                 if (!error) {
                     alert("Buluta Kaydedildi! ✅");
-                    setForm({ title: '', video_url: '', image_data: null, warnings: [''], steps: [''], markers: [] });
-                    load();
+                    setSopForm({ title: '', video_url: '', image_data: null, warnings: [''], steps: [''], markers: [] });
+                    fetchSops();
                 } else { alert("Hata: " + error.message); }
             };
 
-            // --- OPERATÖR EKRANI ---
+            const handleDelete = async (id) => {
+                if(confirm("Bu SOP silinsin mi?")) {
+                    const { error } = await _supabase.from('sops').delete().eq('id', id);
+                    if (!error) fetchSops();
+                }
+            };
+
+            // --- STACKBLITZ OPERATÖR EKRANI ---
             if (viewMode === 'operator' && targetId) {
-                const sop = list.find(s => s.id == targetId);
+                const sop = library.find(s => s.id == targetId);
                 if (!sop) return <div className="p-20 text-center font-black">Yükleniyor...</div>;
                 return (
                     <div className="p-6 lg:p-12 max-w-6xl mx-auto">
@@ -67,20 +73,20 @@
                             <div className="relative rounded-[3rem] overflow-hidden shadow-2xl border-[10px] border-white">
                                 <img src={sop.image_data} className="w-full h-auto" />
                                 {sop.markers?.map((m, i) => (
-                                    <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full border-4 border-white bg-red-600 text-white font-black flex items-center justify-center shadow-lg" style={{ left: `${m.x}%`, top: `${m.y}%` }}>{m.label}</div>
+                                    <div key={i} className={`absolute -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full border-4 border-white shadow-2xl flex items-center justify-center text-white font-black bg-red-600`} style={{ left: `${m.x}%`, top: `${m.y}%` }}>{m.label}</div>
                                 ))}
                             </div>
                             <div className="space-y-6">
                                 {sop.warnings?.some(w => w) && (
                                     <div className="p-6 bg-red-50 border-l-8 border-red-500 rounded-3xl mb-4 font-bold text-red-700">
-                                        <h3 className="font-black text-red-600 mb-2 uppercase text-xs tracking-widest flex items-center gap-2"><AlertTriangle size={18}/> Güvenlik</h3>
+                                        <h3 className="font-black text-red-600 mb-2 uppercase text-xs tracking-widest flex items-center gap-2"><AlertTriangle size={18}/> UYARILAR</h3>
                                         {sop.warnings.map((w, i) => w && <p key={i}>• {w}</p>)}
                                     </div>
                                 )}
                                 {sop.steps?.map((s, i) => s && (
-                                    <div key={i} className="flex gap-4 p-5 bg-white rounded-3xl border shadow-sm items-center transition-all hover:bg-slate-50">
-                                        <span className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center font-black shrink-0 shadow-md text-lg">{i+1}</span>
-                                        <p className="font-bold text-slate-700 text-xl leading-tight">{s}</p>
+                                    <div key={i} className="flex gap-4 p-5 bg-white rounded-3xl border shadow-sm items-center transition-all hover:bg-slate-50 text-xl font-bold">
+                                        <span className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center font-black shrink-0 shadow-md">{i+1}</span>
+                                        <p className="text-slate-700 leading-tight">{s}</p>
                                     </div>
                                 ))}
                             </div>
@@ -90,98 +96,97 @@
             }
 
             // --- GİRİŞ ---
-            if (!isAuth) return (
+            if (!isAuthenticated) return (
                 <div className="flex flex-col items-center justify-center min-h-screen space-y-8 animate-in zoom-in-95 duration-500">
-                    <h1 className="text-4xl font-black italic text-blue-600 tracking-tighter uppercase">VisionGuide <span className="text-slate-900">AR-SOP</span></h1>
-                    <input type="password" placeholder="Şifre (1234)" className="p-6 border-2 rounded-[2rem] text-center text-4xl font-black outline-none w-64 shadow-inner focus:border-blue-400" value={pass} onChange={e => setPass(e.target.value)} />
-                    <button onClick={() => pass === '1234' && setIsAuth(true)} className="bg-slate-900 text-white px-16 py-5 rounded-[2rem] font-black text-xl shadow-2xl hover:bg-blue-600 transition-all uppercase">Giriş Yap</button>
+                    <h1 className="text-4xl font-black italic text-blue-600 tracking-tighter uppercase font-black">VisionGuide</h1>
+                    <input type="password" placeholder="Şifre" className="p-6 border-2 rounded-[2rem] text-center text-4xl font-black outline-none w-64 shadow-inner" value={accessKey} onChange={(e) => setAccessKey(e.target.value)} />
+                    <button onClick={() => {if(accessKey === '1234') setIsAuthenticated(true)}} className="bg-slate-900 text-white px-16 py-5 rounded-[2rem] font-black text-xl shadow-2xl hover:bg-blue-600 transition-all uppercase">GİRİŞ</button>
                 </div>
             );
 
-            // --- ANA PANEL ---
+            // --- STACKBLITZ ANA PANEL (MODERN DİZAYN) ---
             return (
                 <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-10">
                     <header className="flex justify-between items-center bg-white p-6 rounded-[2.5rem] shadow-sm border">
                         <div className="flex items-center gap-3">
-                            <div className="bg-blue-600 p-2.5 rounded-2xl text-white shadow-lg shadow-blue-100"><Layers size={24} /></div>
-                            <h1 className="font-black text-2xl italic uppercase tracking-tighter">VisionGuide <span className="text-blue-600">Cloud</span></h1>
+                            <div className="bg-blue-600 p-2.5 rounded-2xl text-white shadow-lg"><Layers size={24} /></div>
+                            <h1 className="font-black text-2xl uppercase italic tracking-tighter">VisionGuide <span className="text-blue-600">Cloud</span></h1>
                         </div>
-                        <button onClick={() => setIsAuth(false)} className="p-3 bg-red-50 text-red-600 rounded-xl font-black hover:bg-red-600 hover:text-white transition-all"><LogOut size={20}/></button>
+                        <button onClick={() => setIsAuthenticated(false)} className="p-3 bg-red-50 text-red-600 rounded-xl font-black"><LogOut size={20}/></button>
                     </header>
 
                     <div className="grid lg:grid-cols-12 gap-10">
                         <div className="lg:col-span-7 space-y-4">
                             <div className="flex gap-2 mb-2">
-                                <button onClick={() => setActiveType('red')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${activeType === 'red' ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-500'}`}>Red (Step)</button>
-                                <button onClick={() => setActiveType('blue')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${activeType === 'blue' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>Blue (Info)</button>
+                                <button onClick={() => setActiveMarkerType('red')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${activeMarkerType === 'red' ? 'bg-red-600 text-white shadow-md' : 'bg-slate-200 text-slate-500'}`}>RED (STEP)</button>
+                                <button onClick={() => setActiveMarkerType('blue')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${activeMarkerType === 'blue' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-200 text-slate-500'}`}>BLUE (INFO)</button>
                             </div>
                             <div className="bg-white p-4 rounded-[3.5rem] border-2 border-slate-100 shadow-sm relative min-h-[500px] flex items-center justify-center">
-                                {form.image_data ? (
-                                    <div className="relative w-full overflow-hidden rounded-[2.5rem]" ref={imgRef} onClick={(e) => {
-                                        const rect = imgRef.current.getBoundingClientRect();
+                                {sopForm.image_data ? (
+                                    <div className="relative w-full overflow-hidden rounded-[2.5rem]" onClick={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
                                         const x = ((e.clientX - rect.left) / rect.width) * 100;
                                         const y = ((e.clientY - rect.top) / rect.height) * 100;
-                                        const label = activeType === 'red' ? (form.markers.filter(m => m.type === 'red').length + 1).toString() : 'i';
-                                        setForm(p => ({ ...p, markers: [...p.markers, {x, y, type: activeType, label}] }));
+                                        const label = activeMarkerType === 'red' ? (sopForm.markers.filter(m => m.type === 'red').length + 1).toString() : 'i';
+                                        setSopForm(p => ({ ...p, markers: [...p.markers, {x, y, type: activeMarkerType, label}] }));
                                     }}>
-                                        <img src={form.image_data} className="w-full h-auto block select-none" />
-                                        {form.markers.map((m, i) => (
+                                        <img src={sopForm.image_data} className="w-full h-auto block select-none" />
+                                        {sopForm.markers.map((m, i) => (
                                             <div key={i} className={`absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-white font-black text-xs ${m.type === 'red' ? 'bg-red-600' : 'bg-blue-600'}`} style={{ left: `${m.x}%`, top: `${m.y}%` }}>{m.label}</div>
                                         ))}
-                                        <button onClick={(e)=>{e.stopPropagation(); setForm(p=>({...p, image_data:null, markers:[]}))}} className="absolute top-4 right-4 p-3 bg-white/80 rounded-full text-red-600 shadow-lg hover:bg-red-600 hover:text-white transition-all"><X size={16}/></button>
+                                        <button onClick={(e)=>{e.stopPropagation(); setSopForm(p=>({...p, image_data:null, markers:[]}))}} className="absolute top-4 right-4 p-3 bg-white/80 rounded-full text-red-600 shadow-lg hover:bg-red-600 hover:text-white transition-all"><X size={16}/></button>
                                     </div>
                                 ) : (
-                                    <button onClick={() => fileRef.current.click()} className="flex flex-col items-center gap-4 text-slate-300 hover:text-blue-500 transition-all font-black uppercase text-[10px] tracking-widest"><ImageIcon size={64}/>Üretim Görseli Yükle</button>
+                                    <button onClick={() => fileInputRef.current.click()} className="flex flex-col items-center gap-4 text-slate-300 hover:text-blue-500 transition-all font-black uppercase text-[10px] tracking-widest"><ImageIcon size={64}/>Görsel Yükle</button>
                                 )}
-                                <input type="file" ref={fileRef} className="hidden" onChange={e => {
-                                    const f = e.target.files[0];
-                                    const r = new FileReader();
-                                    r.onloadend = () => setForm({...form, image_data: r.result});
-                                    r.readAsDataURL(f);
-                                }} />
                             </div>
+                            <input type="file" ref={fileInputRef} className="hidden" onChange={e => {
+                                const f = e.target.files[0];
+                                const r = new FileReader();
+                                r.onloadend = () => setSopForm({...sopForm, image_data: r.result});
+                                r.readAsDataURL(f);
+                            }} />
                         </div>
 
                         <div className="lg:col-span-5 space-y-6">
                             <div className="bg-white rounded-[3rem] p-8 border shadow-sm space-y-5">
-                                <input placeholder="SOP Başlığı" className="w-full p-4 bg-slate-50 border rounded-2xl font-black text-lg outline-none focus:border-blue-400" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-orange-500 uppercase tracking-widest px-2">Güvenlik</label>
-                                    {form.warnings.map((w, i) => (
-                                        <input key={i} className="w-full p-2 bg-orange-50/50 border border-orange-100 rounded-xl text-xs font-bold outline-none" placeholder="Uyarı..." value={w} onChange={(e) => {
-                                            const nw = [...form.warnings]; nw[i] = e.target.value; setForm({...form, warnings: nw});
+                                <input placeholder="SOP Başlığı" className="w-full p-4 bg-slate-50 border rounded-2xl font-black text-lg outline-none focus:border-blue-400 shadow-inner" value={sopForm.title} onChange={e => setSopForm({...sopForm, title: e.target.value})} />
+                                <div className="space-y-2 p-4 bg-orange-50 rounded-2xl border-2 border-orange-100">
+                                    <label className="text-[10px] font-black text-orange-600 uppercase tracking-widest">⚠️ Güvenlik Uyarıları</label>
+                                    {sopForm.warnings.map((w, i) => (
+                                        <input key={i} className="w-full p-2 bg-white border border-orange-200 rounded-xl text-xs font-bold" value={w} onChange={(e) => {
+                                            const nw = [...sopForm.warnings]; nw[i] = e.target.value; setSopForm({...sopForm, warnings: nw});
                                         }} />
                                     ))}
-                                    <button onClick={() => setForm(p => ({...p, warnings: [...p.warnings, '']}))} className="text-[9px] font-black text-orange-400 uppercase tracking-widest">+ Yeni Uyarı</button>
+                                    <button onClick={() => setSopForm(p => ({...p, warnings: [...p.warnings, '']}))} className="text-[9px] font-black text-orange-400 uppercase">+ Ekle</button>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Adımlar</label>
-                                    <div className="max-h-48 overflow-y-auto pr-2 space-y-2">
-                                        {form.steps.map((s, i) => (
+                                    <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                                        {sopForm.steps.map((s, i) => (
                                             <div key={i} className="flex gap-2">
                                                 <span className="w-8 h-8 flex items-center justify-center font-black text-white bg-blue-600 rounded-lg text-xs shrink-0 shadow-md">{i+1}</span>
-                                                <input className="flex-1 p-2 border rounded-xl text-xs font-bold outline-none" value={s} onChange={(e) => {
-                                                    const ns = [...form.steps]; ns[i] = e.target.value; setForm({...form, steps: ns});
+                                                <input className="flex-1 p-2 border rounded-xl text-xs font-bold" value={s} onChange={(e) => {
+                                                    const ns = [...sopForm.steps]; ns[i] = e.target.value; setSopForm({...sopForm, steps: ns});
                                                 }} />
                                             </div>
                                         ))}
                                     </div>
-                                    <button onClick={() => setForm(p => ({...p, steps: [...p.steps, '']}))} className="w-full py-3 border-2 border-dashed rounded-2xl text-[10px] font-black text-slate-300 hover:text-blue-500 transition-all uppercase">+ Adım Ekle</button>
+                                    <button onClick={() => setSopForm(p => ({...p, steps: [...p.steps, '']}))} className="w-full py-3 border-2 border-dashed rounded-2xl text-[10px] font-black text-slate-300 hover:text-blue-500 transition-all">+ Adım Ekle</button>
                                 </div>
-                                <button onClick={saveSOP} className="w-full bg-blue-600 text-white py-6 rounded-[2.5rem] font-black text-xl shadow-2xl active:scale-95 transition-all uppercase tracking-tighter">Buluta Kaydet</button>
+                                <button onClick={handleSave} className="w-full py-6 bg-blue-600 text-white rounded-[2.5rem] font-black text-xl shadow-2xl active:scale-95 transition-all uppercase tracking-tighter">Buluta Kaydet</button>
                             </div>
                             <div className="space-y-3 pb-20">
-                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Kayıtlı SOP Listesi ({list.length})</h3>
-                                {list.map(s => (
+                                {library.map(s => (
                                     <div key={s.id} className="bg-white p-4 rounded-[2.5rem] border flex items-center gap-4 group hover:shadow-xl transition-all">
-                                        <img src={s.image_data} className="w-14 h-14 object-cover rounded-2xl border shadow-inner" />
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className="font-black text-slate-800 text-sm uppercase truncate mb-1">{s.title}</h4>
-                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{s.steps?.length} Adım Kayıtlı</p>
+                                        <img src={s.image_data} className="w-14 h-14 object-cover rounded-2xl border" />
+                                        <div className="flex-1 min-w-0 font-black">
+                                            <h4 className="text-slate-800 text-sm uppercase truncate">{s.title}</h4>
+                                            <p className="text-[10px] text-slate-400 tracking-widest">{s.steps?.length} ADIM</p>
                                         </div>
-                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => window.open(`?view=operator&id=${s.id}`)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all"><PlayCircle size={18}/></button>
-                                            <button onClick={async () => { if(confirm('Silinsin mi?')) { await sb.from('sops').delete().eq('id', s.id); load(); } }} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"><Trash2 size={18}/></button>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => window.open(`?view=operator&id=${s.id}`)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"><PlayCircle size={20}/></button>
+                                            <button onClick={() => handleDelete(s.id)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"><Trash2 size={20}/></button>
                                         </div>
                                     </div>
                                 ))}
