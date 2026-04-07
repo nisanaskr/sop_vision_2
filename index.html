@@ -11,157 +11,106 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-slate-50 font-sans">
+<body class="bg-slate-50">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
-        const { 
-            Layers, FileText, Plus, Trash2, Lock, Edit, 
-            Image: ImageIcon, Download, AlertTriangle, PlayCircle, LogOut 
-        } = lucide;
 
-        // --- SUPABASE AYARLARI ---
-        const SUPABASE_URL = "bmulnovloaztpdffyvdu"; // URL'ini buraya yapıştır
-        const SUPABASE_KEY = "sb_publishable_grZ8KeNvZ6lY6cLPH9Y0vg_UoykUB_-"; // Anon Key'ini buraya yapıştır
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // --- SUPABASE BAĞLANTISI (DÜZELTİLDİ) ---
+        const SUPABASE_URL = "https://bmulnovloaztpdffyvdu.supabase.co"; // URL'ini buraya yapıştır
+        const SUPABASE_KEY = "BURAYA_ANON_KEY_YAPISTIR"; // Anon Key'ini buraya yapıştır
+        
+        // Buradaki yazım hatası düzeltildi
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         const App = () => {
-            const queryParams = new URLSearchParams(window.location.search);
-            const viewMode = queryParams.get('view'); 
-            const targetId = queryParams.get('id');
-
             const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [accessKey, setAccessKey] = useState('');
             const [library, setLibrary] = useState([]);
             const [sopForm, setSopForm] = useState({ title: '', video_url: '', image_data: null, warnings: [''], steps: [''], markers: [] });
-            const [accessKey, setAccessKey] = useState('');
             const fileInputRef = useRef(null);
 
-            // Veritabanından Verileri Çek
+            // Verileri Çek
             useEffect(() => { fetchSops(); }, []);
 
             const fetchSops = async () => {
-                const { data, error } = await supabaseClient.from('sops').select('*').order('created_at', { ascending: false });
+                const { data, error } = await _supabase.from('sops').select('*').order('created_at', { ascending: false });
                 if (!error) setLibrary(data);
             };
 
             const handleSave = async () => {
-                if (!sopForm.title) return alert("Lütfen Başlık Girin!");
-                const { error } = await supabaseClient.from('sops').insert([sopForm]);
+                if (!sopForm.title) return alert("Başlık girin!");
+                const { error } = await _supabase.from('sops').insert([sopForm]);
                 if (!error) {
-                    alert("SOP Buluta Kaydedildi! ✅");
+                    alert("Kaydedildi!");
                     setSopForm({ title: '', video_url: '', image_data: null, warnings: [''], steps: [''], markers: [] });
                     fetchSops();
                 } else { alert("Hata: " + error.message); }
             };
 
-            const handleDelete = async (id) => {
-                if(confirm("Bu SOP'u silmek istediğine emin misin?")) {
-                    const { error } = await supabaseClient.from('sops').delete().eq('id', id);
-                    if (!error) fetchSops();
-                }
-            };
-
-            // --- OPERATÖR EKRANI ---
-            if (viewMode === 'operator' && targetId) {
-                const sop = library.find(s => s.id == targetId);
-                if (!sop) return <div className="p-20 text-center font-black text-slate-400">YÜKLENİYOR VEYA SOP BULUNAMADI...</div>;
-                return (
-                    <div className="p-6 lg:p-12 max-w-6xl mx-auto animate-in fade-in duration-700">
-                        <header className="flex items-center gap-4 mb-8 border-b-4 border-blue-600 pb-6">
-                            <div className="bg-blue-600 p-4 rounded-3xl text-white shadow-lg"><Layers size={32} /></div>
-                            <h1 className="font-black text-4xl uppercase tracking-tighter text-slate-800">{sop.title}</h1>
-                        </header>
-                        {sop.warnings?.length > 0 && sop.warnings[0] !== "" && (
-                            <div className="mb-10 p-8 bg-red-50 border-l-[12px] border-red-500 rounded-[2.5rem] shadow-sm">
-                                <h3 className="font-black text-red-600 mb-4 flex items-center gap-3 text-xl"><AlertTriangle size={28}/> GÜVENLİK PROTOKOLÜ</h3>
-                                {sop.warnings.map((w, i) => w && <p key={i} className="font-bold text-red-700 text-xl mb-2">• {w}</p>)}
-                            </div>
-                        )}
-                        <div className="grid lg:grid-cols-2 gap-12">
-                            <div className="relative rounded-[3rem] overflow-hidden shadow-2xl border-[12px] border-white">
-                                <img src={sop.image_data} className="w-full h-auto" />
-                                {sop.markers?.map((m, i) => (
-                                    <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full border-4 border-white shadow-2xl flex items-center justify-center text-white font-black text-xl bg-red-600" style={{ left: `${m.x}%`, top: `${m.y}%` }}>{m.label}</div>
-                                ))}
-                            </div>
-                            <div className="space-y-6">
-                                <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] mb-4">Uygulama Adımları</h2>
-                                {sop.steps?.map((s, i) => s && (
-                                    <div key={i} className="flex gap-6 p-6 bg-white rounded-[2rem] shadow-md border-2 border-slate-50 hover:border-blue-200 transition-all">
-                                        <span className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black shrink-0 text-xl shadow-lg">{i+1}</span>
-                                        <p className="font-bold text-slate-700 text-xl pt-1 leading-tight">{s}</p>
-                                    </div>
-                                ))}
-                                {sop.video_url && (
-                                    <a href={sop.video_url} target="_blank" className="flex items-center justify-center gap-4 w-full py-8 bg-indigo-600 text-white rounded-[3rem] font-black text-2xl shadow-2xl hover:scale-105 transition-transform mt-8"><PlayCircle size={32} /> EĞİTİM VİDEOSU</a>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
-            // --- GİRİŞ EKRANI ---
             if (!isAuthenticated) {
                 return (
-                    <div className="max-w-md mx-auto mt-32 p-12 bg-white rounded-[4rem] shadow-2xl text-center space-y-10 border-t-8 border-blue-600 animate-in zoom-in-95 duration-500">
-                        <div className="w-24 h-24 bg-blue-50 rounded-[2rem] flex items-center justify-center mx-auto text-blue-600 shadow-inner"><Lock size={48} /></div>
-                        <div>
-                            <h2 className="text-4xl font-black italic text-slate-800">VisionGuide</h2>
-                            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-2">Mühendis Kontrol Paneli</p>
-                        </div>
-                        <input type="password" placeholder="••••" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-[2rem] text-center text-4xl font-black outline-none focus:border-blue-400 transition-all" value={accessKey} onChange={(e) => setAccessKey(e.target.value)} />
-                        <button onClick={() => {if(accessKey === '1234') setIsAuthenticated(true)}} className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-xl shadow-xl hover:bg-blue-600 active:scale-95 transition-all uppercase tracking-tighter">Sisteme Giriş</button>
+                    <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+                        <h1 className="text-3xl font-black italic text-blue-600">VisionGuide</h1>
+                        <input 
+                            type="password" 
+                            placeholder="Şifre (1234)" 
+                            className="p-4 border rounded-2xl text-center font-bold"
+                            value={accessKey}
+                            onChange={(e) => setAccessKey(e.target.value)}
+                        />
+                        <button 
+                            onClick={() => {if(accessKey === '1234') setIsAuthenticated(true)}}
+                            className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-bold"
+                        >GİRİŞ</button>
                     </div>
                 );
             }
 
-            // --- MÜHENDİS ANA PANEL ---
             return (
-                <div className="p-6 lg:p-12 max-w-7xl mx-auto">
-                    <header className="flex justify-between items-center mb-10 bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-                        <div className="flex items-center gap-4">
-                            <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-100"><Layers size={28} /></div>
-                            <div>
-                                <h1 className="font-black text-2xl leading-none">VisionGuide <span className="text-blue-600 italic">Cloud</span></h1>
-                                <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mt-1 flex items-center gap-1">● Live Database Connected</p>
-                            </div>
-                        </div>
-                        <button onClick={() => setIsAuthenticated(false)} className="p-4 bg-red-50 text-red-600 rounded-2xl font-black hover:bg-red-600 hover:text-white transition-all shadow-sm"><LogOut size={20}/></button>
-                    </header>
+                <div className="p-10 max-w-4xl mx-auto space-y-10">
+                    <div className="bg-white p-10 rounded-[3rem] shadow-xl border">
+                        <h2 className="text-2xl font-black mb-6">SOP OLUŞTUR</h2>
+                        <input 
+                            placeholder="SOP Başlığı" 
+                            className="w-full p-4 bg-slate-50 border rounded-2xl mb-4" 
+                            value={sopForm.title}
+                            onChange={e => setSopForm({...sopForm, title: e.target.value})}
+                        />
+                        <button 
+                            onClick={() => fileInputRef.current.click()}
+                            className="w-full py-10 border-4 border-dashed rounded-3xl text-slate-400 font-bold mb-4"
+                        >
+                            {sopForm.image_data ? "Görsel Yüklendi ✓" : "Üretim Görseli Yükle"}
+                        </button>
+                        <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => {
+                            const file = e.target.files[0];
+                            const reader = new FileReader();
+                            reader.onloadend = () => setSopForm(p => ({...p, image_data: reader.result}));
+                            reader.readAsDataURL(file);
+                        }} />
+                        <button 
+                            onClick={handleSave}
+                            className="w-full bg-blue-600 text-white py-5 rounded-3xl font-black"
+                        >BULUTA KAYDET</button>
+                    </div>
 
-                    <div className="grid lg:grid-cols-12 gap-12">
-                        {/* GÖRSEL ALANI */}
-                        <div className="lg:col-span-7 space-y-6">
-                            <div className="bg-white p-6 rounded-[3.5rem] border-2 border-slate-100 shadow-sm relative group">
-                                <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-50 min-h-[500px] flex items-center justify-center cursor-crosshair border-4 border-dashed border-slate-200 hover:border-blue-400 transition-colors">
-                                    {sopForm.image_data ? (
-                                        <div className="relative w-full" onClick={(e) => {
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            const x = ((e.clientX - rect.left) / rect.width) * 100;
-                                            const y = ((e.clientY - rect.top) / rect.height) * 100;
-                                            const label = (sopForm.markers.length + 1).toString();
-                                            setSopForm(p => ({ ...p, markers: [...p.markers, {x, y, type: 'red', label}] }));
-                                        }}>
-                                            <img src={sopForm.image_data} className="w-full h-auto block" />
-                                            {sopForm.markers.map((m, i) => (
-                                                <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full border-2 border-white bg-red-600 shadow-2xl flex items-center justify-center text-white font-black text-sm" style={{ left: `${m.x}%`, top: `${m.y}%` }}>{m.label}</div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <button onClick={() => fileInputRef.current.click()} className="flex flex-col items-center gap-4 text-slate-300 hover:text-blue-500 transition-all">
-                                            <ImageIcon size={80} strokeWidth={1} />
-                                            <span className="font-black uppercase tracking-widest text-sm">Üretim Görselini Buraya Yükle</span>
-                                        </button>
-                                    )}
-                                </div>
-                                <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if(file) {
-                                        const reader = new FileReader();
-                                        reader.onloadend = () => setSopForm(p => ({...p, image_data: reader.result}));
-                                        reader.readAsDataURL(file);
-                                    }
-                                }} />
-                                {sopForm.image_data && <button onClick={()=>setSopForm(p=>({...p, image_data:null, markers:[]
+                    <div className="grid gap-4">
+                        <h3 className="font-black text-slate-400">KAYITLI SOP'LAR ({library.length})</h3>
+                        {library.map(s => (
+                            <div key={s.id} className="bg-white p-6 rounded-3xl border flex justify-between items-center">
+                                <span className="font-bold uppercase">{s.title}</span>
+                                <span className="text-[10px] text-slate-300">ID: {s.id}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
